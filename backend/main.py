@@ -6,20 +6,18 @@ from pypdf import PdfReader
 import os
 import json
 from dotenv import load_dotenv
-from openai import OpenAI
+from groq import Groq
 from pydantic import BaseModel
 
-# STEP 1: Set up the connection to the OpenAI API.
-load_dotenv(Path(__file__).parent / ".env")  # reads secrets (like OPENAI_API_KEY) from backend/.env
-my_api_key=os.getenv("OPENAI_API_KEY")
+# STEP 1: Set up the connection to the Groq API (free tier).
+load_dotenv(Path(__file__).parent / ".env")  # reads secrets (like GROQ_API_KEY) from backend/.env
+my_api_key=os.getenv("GROQ_API_KEY")
 
 if not my_api_key:
-    raise ValueError("OPENAI_API_KEY is missing from backend/.env")
+    raise ValueError("GROQ_API_KEY is missing from backend/.env")
 
-client=OpenAI(api_key=my_api_key)  # client = our handle for making AI calls
-# Cost-effective model: ~$0.15/1M input, $0.60/1M output tokens.
-# Switch to "gpt-4.1-nano" for ~30% cheaper if needed.
-model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+client=Groq(api_key=my_api_key)  # client = our handle for making AI calls
+model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 
 app = FastAPI()
@@ -197,6 +195,13 @@ def get_resume() -> Resume:
         resume_text = read_pdf(RESUME_PATH)
         _resume_cache = parse_resume(resume_text)
     return _resume_cache
+
+
+@app.get("/health")
+def health():
+    # Lightweight endpoint for uptime pingers (UptimeRobot/cron-job.org).
+    # Makes NO LLM call, so pinging it every few minutes is instant and free.
+    return {"status": "ok"}
 
 
 @app.get("/")
