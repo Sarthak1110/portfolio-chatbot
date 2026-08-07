@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+openai
+pypdf
+python-docx
+python-dotenv
+pydantic

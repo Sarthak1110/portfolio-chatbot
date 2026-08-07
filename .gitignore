@@ -1,0 +1,26 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+venv/
+.python-version
+
+# Secrets / environment — NEVER commit these (API keys live here)
+.env
+.env.*
+!.env.example
+
+# OS / editor junk
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Note: the resume PDF is intentionally NOT ignored — the backend reads it at
+# runtime, so it must be committed and deployed with the app.
