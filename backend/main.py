@@ -17,7 +17,10 @@ if not my_api_key:
     raise ValueError("GROQ_API_KEY is missing from backend/.env")
 
 client=Groq(api_key=my_api_key)  # client = our handle for making AI calls
-model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+# Groq retired the llama-3.3-70b-versatile lineup, so the old default now 404s.
+# gpt-oss-120b is the replacement: 131k context, and it supports both the JSON
+# mode parse_resume() needs and token streaming for /chat/stream.
+model=os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 
 app = FastAPI()
