@@ -6,21 +6,18 @@ from pypdf import PdfReader
 import os
 import json
 from dotenv import load_dotenv
-from groq import Groq
+from openai import OpenAI
 from pydantic import BaseModel
 
-# STEP 1: Set up the connection to the Groq API (free tier).
-load_dotenv(Path(__file__).parent / ".env")  # reads secrets (like GROQ_API_KEY) from backend/.env
-my_api_key=os.getenv("GROQ_API_KEY")
+# STEP 1: Set up the connection to the OpenAI API.
+load_dotenv(Path(__file__).parent / ".env")  # reads secrets (like OPENAI_API_KEY) from backend/.env
+my_api_key=os.getenv("OPENAI_API_KEY")
 
 if not my_api_key:
-    raise ValueError("GROQ_API_KEY is missing from backend/.env")
+    raise ValueError("OPENAI_API_KEY is missing from backend/.env")
 
-client=Groq(api_key=my_api_key)  # client = our handle for making AI calls
-# Groq retired the llama-3.3-70b-versatile lineup, so the old default now 404s.
-# gpt-oss-120b is the replacement: 131k context, and it supports both the JSON
-# mode parse_resume() needs and token streaming for /chat/stream.
-model=os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+client=OpenAI(api_key=my_api_key)  # client = our handle for making AI calls
+model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 
 app = FastAPI()
