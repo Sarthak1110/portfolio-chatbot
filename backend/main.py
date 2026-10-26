@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from functools import lru_cache
 from pathlib import Path
 from pypdf import PdfReader
@@ -21,6 +23,20 @@ model="openai/gpt-oss-120b"  # which AI model to use for every call below
 
 
 app = FastAPI()
+
+# Allow the portfolio frontend (Vite dev server / deployed site) to call this API
+# from the browser. Set CHATBOT_ALLOWED_ORIGINS (comma-separated) in production;
+# defaults to "*" for local development.
+_origins = os.getenv("CHATBOT_ALLOWED_ORIGINS", "*")
+allow_origins = ["*"] if _origins.strip() == "*" else [
+    o.strip() for o in _origins.split(",") if o.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allow_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class Experience(BaseModel):
     company: str | None = None
@@ -47,9 +63,9 @@ class ChatRequest(BaseModel):
     question: str
 
 
-def ask_candidate(question: str, resume: Resume):
-
-    system_prompt = f"""
+# Instructions for answering as the candidate; shared by /chat and /chat/stream.
+def candidate_system_prompt(resume: Resume):
+    return f"""
 You are an AI assistant representing a job candidate.
 
 Below is everything you know about the candidate.
@@ -71,6 +87,11 @@ say
 
 5. Answer as if HR is interviewing this candidate.
 """
+
+
+def ask_candidate(question: str, resume: Resume):
+
+    system_prompt = candidate_system_prompt(resume)
 
     response = client.chat.completions.create(
 
@@ -175,6 +196,12 @@ def get_resume():
     resume_text = read_pdf(RESUME_PATH)
     return parse_resume(resume_text)
 
+@app.get("/health")
+def health():
+    # Lightweight endpoint for uptime pingers (UptimeRobot/cron-job.org).
+    # Makes NO AI call, so pinging it every few minutes is instant and free.
+    return {"status": "ok"}
+
 @app.get("/")
 def home():
     resume=get_resume()
@@ -190,3 +217,44 @@ def chat(request: ChatRequest):
     return {
         "answer": answer
     }
+
+@app.post("/chat/stream")
+def chat_stream(request: ChatRequest):
+    """
+    Streams the AI response token-by-token using Server-Sent Events (SSE).
+    The frontend can read the stream line by line and update the UI in real time.
+    """
+    resume=get_resume()
+    system_prompt=candidate_system_prompt(resume)
+
+    def event_stream():
+        try:
+            stream = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": request.question},
+                ],
+                stream=True,
+            )
+            for chunk in stream:
+                # The final usage-only chunk can have an empty choices list.
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    # SSE format: "data: <json>\n\n"
+                    yield f"data: {json.dumps({'token': delta.content})}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable buffering in nginx
+        },
+    )
