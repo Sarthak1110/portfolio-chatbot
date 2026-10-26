@@ -13,10 +13,15 @@ from pydantic import BaseModel
 
 # STEP 1: Set up the connection to the Groq AI API.
 load_dotenv(Path(__file__).parent / ".env")  # reads secrets (like GROQ_API_KEY) from backend/.env
-my_api_key=os.getenv("GROQ_API_KEY")
+# Strip stray spaces/quotes, a common mistake when pasting the key into a hosting dashboard.
+my_api_key=(os.getenv("GROQ_API_KEY") or "").strip().strip("\"'")
 
 if not my_api_key:
     raise ValueError("API key kaha hai bhai")
+
+# Safe fingerprint (never the full key) so you can check in the server logs which key
+# is loaded, and compare it with the keys listed in the Groq console.
+print(f"Using GROQ_API_KEY {my_api_key[:4]}...{my_api_key[-4:]} (length {len(my_api_key)})", flush=True)
 
 client=Groq(api_key=my_api_key)  # client = our handle for making AI calls
 model="openai/gpt-oss-120b"  # which AI model to use for every call below
